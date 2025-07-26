@@ -1,5 +1,79 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../player.js");
+const dotenv = require("dotenv");
+dotenv.config();
+
+const cmdPlay = new SlashCommandBuilder()
+  .setName("play")
+  .setDescription("Reproduce una música por el nombre")
+  .addStringOption(option =>
+    option
+      .setName("song")
+      .setDescription("Nombre de la canción")
+      .setRequired(true)
+  )
+  .toJSON();
+
+const play = async (interaction) => {
+  const targetChannel = interaction.guild.channels.cache.get(process.env.ALLOWED_CHANNEL_ID);
+  if (!targetChannel) {
+    return await interaction.reply({
+      content: "Canal no encontrado para respuesta!",
+      ephemeral: true,
+    });
+  }
+
+  const song = interaction.options.getString("song");
+  if (!song) {
+    return await interaction.reply({
+      content: "Debes ingresar el nombre de una música!",
+      ephemeral: true,
+    });
+  }
+
+  const channel = interaction.member.voice.channel;
+  if (!channel) {
+    return await interaction.reply({
+      content: "Debes estar en un canal para usar esta función!",
+      ephemeral: true,
+    });
+  }
+
+  try {
+    await interaction.deferReply({ ephemeral: true });
+
+    const searchResult = await player.search(song, {
+      requestedBy: interaction.user,
+    });
+
+    if (!searchResult.hasTracks()) {
+      return interaction.editReply({
+        content: "No se encontraron resultados.",
+      });
+    }
+
+    await player.play(channel, searchResult.tracks[0], {
+      requestedBy: interaction.user,
+    });
+
+    await interaction.editReply({
+      content: `🎶 Reproduciendo música: ${searchResult.tracks[0].title}`,
+    });
+
+    return targetChannel.send(`MÚSICA: ${searchResult.tracks[0].url}`);
+  } catch (err) {
+    console.error(err);
+    return await interaction.editReply({
+      content: "Ocurrió un error al reproducir la música.",
+    });
+  }
+};
+
+module.exports = { cmdPlay, play };
+
+
+/* const { SlashCommandBuilder } = require("discord.js");
+const { player } = require("../../player.js");
 const dotenv = require("dotenv")
 dotenv.config();
 
@@ -40,4 +114,4 @@ const play = async(interaction)=>{
     }
 };
 
-module.exports = {cmdPlay, play};
+module.exports = {cmdPlay, play}; */
